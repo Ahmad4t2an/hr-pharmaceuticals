@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "framework": "vite",
   "rewrites": [
     {
       "source": "/api/(.*)",
@@ -7,8 +8,7 @@
     },
     {
       "source": "/(.*)",
-      "destination": "/"
+      "destination": "/index.html"
     }
-  ],
-  "framework": "vite"
+  ]
 }

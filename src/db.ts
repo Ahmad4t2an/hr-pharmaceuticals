@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const StringReq = { type: String, required: true };
 const StringOpt = { type: String };
 
-export const Product = mongoose.models.Product || mongoose.model("Product", new mongoose.Schema({
+export const Product: any = mongoose.models.Product || mongoose.model("Product", new mongoose.Schema({
   id: { type: String, unique: true },
   name: String,
   sku: String,
@@ -20,20 +20,20 @@ export const Product = mongoose.models.Product || mongoose.model("Product", new 
   images: [String]
 }));
 
-export const Category = mongoose.models.Category || mongoose.model("Category", new mongoose.Schema({
+export const Category: any = mongoose.models.Category || mongoose.model("Category", new mongoose.Schema({
   id: { type: String, unique: true },
   name: String,
   description: String,
   image: String
 }));
 
-export const Brand = mongoose.models.Brand || mongoose.model("Brand", new mongoose.Schema({
+export const Brand: any = mongoose.models.Brand || mongoose.model("Brand", new mongoose.Schema({
   id: { type: String, unique: true },
   name: String,
   logoUrl: String
 }));
 
-export const Supplier = mongoose.models.Supplier || mongoose.model("Supplier", new mongoose.Schema({
+export const Supplier: any = mongoose.models.Supplier || mongoose.model("Supplier", new mongoose.Schema({
   id: { type: String, unique: true },
   name: String,
   contact: String,
@@ -42,7 +42,7 @@ export const Supplier = mongoose.models.Supplier || mongoose.model("Supplier", n
   address: String
 }));
 
-export const Customer = mongoose.models.Customer || mongoose.model("Customer", new mongoose.Schema({
+export const Customer: any = mongoose.models.Customer || mongoose.model("Customer", new mongoose.Schema({
   id: { type: String, unique: true },
   name: String,
   email: String,
@@ -50,7 +50,7 @@ export const Customer = mongoose.models.Customer || mongoose.model("Customer", n
   address: String
 }));
 
-export const InventoryLog = mongoose.models.InventoryLog || mongoose.model("InventoryLog", new mongoose.Schema({
+export const InventoryLog: any = mongoose.models.InventoryLog || mongoose.model("InventoryLog", new mongoose.Schema({
   id: { type: String, unique: true },
   productId: String,
   productName: String,
@@ -71,7 +71,7 @@ const SaleItemSchema = new mongoose.Schema({
   totalPrice: Number
 }, { _id: false });
 
-export const Sale = mongoose.models.Sale || mongoose.model("Sale", new mongoose.Schema({
+export const Sale: any = mongoose.models.Sale || mongoose.model("Sale", new mongoose.Schema({
   id: { type: String, unique: true },
   invoiceNumber: String,
   customerId: String,
@@ -94,7 +94,7 @@ const PurchaseItemSchema = new mongoose.Schema({
   totalCost: Number
 }, { _id: false });
 
-export const PurchaseOrder = mongoose.models.PurchaseOrder || mongoose.model("PurchaseOrder", new mongoose.Schema({
+export const PurchaseOrder: any = mongoose.models.PurchaseOrder || mongoose.model("PurchaseOrder", new mongoose.Schema({
   id: { type: String, unique: true },
   poNumber: String,
   supplierId: String,
@@ -108,7 +108,7 @@ export const PurchaseOrder = mongoose.models.PurchaseOrder || mongoose.model("Pu
   timestamp: String
 }));
 
-export const NotificationItem = mongoose.models.NotificationItem || mongoose.model("NotificationItem", new mongoose.Schema({
+export const NotificationItem: any = mongoose.models.NotificationItem || mongoose.model("NotificationItem", new mongoose.Schema({
   id: { type: String, unique: true },
   type: { type: String },
   title: String,
@@ -117,7 +117,7 @@ export const NotificationItem = mongoose.models.NotificationItem || mongoose.mod
   read: Boolean
 }));
 
-export const CompanySettings = mongoose.models.CompanySettings || mongoose.model("CompanySettings", new mongoose.Schema({
+export const CompanySettings: any = mongoose.models.CompanySettings || mongoose.model("CompanySettings", new mongoose.Schema({
   companyName: String,
   email: String,
   phone: String,
@@ -127,7 +127,7 @@ export const CompanySettings = mongoose.models.CompanySettings || mongoose.model
   invoicePrefix: String
 }));
 
-export const User = mongoose.models.User || mongoose.model("User", new mongoose.Schema({
+export const User: any = mongoose.models.User || mongoose.model("User", new mongoose.Schema({
   id: { type: String, unique: true },
   email: String,
   name: String,
@@ -135,13 +135,28 @@ export const User = mongoose.models.User || mongoose.model("User", new mongoose.
   avatarUrl: String
 }));
 
+let cached = (global as any).mongoose;
+
+if (!cached) {
+  cached = (global as any).mongoose = { conn: null, promise: null };
+}
+
 export async function connectDB() {
-  if (mongoose.connection.readyState >= 1) {
-    return;
+  if (cached.conn) {
+    return cached.conn;
   }
   const uri = process.env.MONGODB_URI;
   if (!uri || uri.includes("127.0.0.1") || uri.includes("user:password")) {
     throw new Error("Missing or invalid MONGODB_URI environment variable.");
   }
-  await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 });
+  if (!cached.promise) {
+    cached.promise = mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 }).then((mongoose) => mongoose);
+  }
+  try {
+    cached.conn = await cached.promise;
+    return cached.conn;
+  } catch (e) {
+    cached.promise = null;
+    throw e;
+  }
 }

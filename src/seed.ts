@@ -1,5 +1,3 @@
-import { SystemState, ClientProduct, ClientCategory, ClientBrand, Supplier, Customer, InventoryLog, Sale, PurchaseOrder, NotificationItem, CompanySettings, User } from "./src/types";
-
 export function getInitialState(): any {
   const categories: any[] = [
     { id: "cat_med_1", name: "Tablets", description: "Solid oral dosage forms molded or compressed into small disks.", image: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=150&auto=format&fit=crop&q=60" },

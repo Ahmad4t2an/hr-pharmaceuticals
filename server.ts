@@ -1,7 +1,6 @@
 import express from "express";
 import path from "path";
 import dotenv from "dotenv";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import { connectDB, Product, Category, Brand, Supplier, Customer, InventoryLog, Sale, PurchaseOrder, NotificationItem, CompanySettings, User } from "./src/db";
 import { getInitialState } from "./src/seed";
@@ -578,6 +577,7 @@ if (process.env.NODE_ENV !== "production") {
   startFullStackServer();
   
   async function startFullStackServer() {
+      const { createServer: createViteServer } = await import("vite");
       const vite = await createViteServer({
         server: { middlewareMode: true },
         appType: "spa"
