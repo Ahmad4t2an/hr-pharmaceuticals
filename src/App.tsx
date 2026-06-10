@@ -18,6 +18,7 @@ import { RefreshCw, LayoutDashboard } from "lucide-react";
 export default function App() {
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
   const [db, setDb] = React.useState<SystemState | null>(null);
+  const [dbError, setDbError] = React.useState<string | null>(null);
   const [activeTab, setActiveTab] = React.useState("dashboard");
   const [loading, setLoading] = React.useState(true);
   const [darkMode, setDarkMode] = React.useState(true);
@@ -52,9 +53,18 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         setDb(data);
+      } else {
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+           const errData = await res.json();
+           setDbError(errData.error || "Failed to load database. Please check your setup.");
+        } else {
+           setDbError("Invalid response from server. Check console for details.");
+        }
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Database fetch error: ", e);
+      setDbError(e.message || "Failed to connect to the server.");
     } finally {
       setLoading(false);
     }
@@ -305,6 +315,19 @@ export default function App() {
 
   // Loading Screen Layout
   if (loading || !db) {
+    if (dbError) {
+      return (
+        <div className="h-screen w-screen bg-zinc-950 flex flex-col items-center justify-center p-6 space-y-4">
+          <div className="max-w-md bg-red-950/40 border border-red-500/50 rounded-xl p-6 text-center space-y-3 shadow-lg shadow-red-500/10">
+            <h2 className="text-xl font-bold text-red-400">Database Connection Error</h2>
+            <p className="text-red-200/80 text-sm leading-relaxed">{dbError}</p>
+            <p className="text-zinc-400 text-xs mt-2 border-t border-red-500/20 pt-4">
+              Fix your environment variables or MongoDB IP Access List and refresh the page.
+            </p>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="h-screen w-screen bg-zinc-950 flex flex-col items-center justify-center space-y-4">
         <RefreshCw className="animate-spin text-indigo-500" size={32} />
