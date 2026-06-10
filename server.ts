@@ -573,18 +573,17 @@ app.post("/api/assistant/chat", async (req, res) => {
 
 export default app;
 
-if (process.env.NODE_ENV !== "production") {
-  startFullStackServer();
-  
-  async function startFullStackServer() {
-      const { createServer: createViteServer } = await import("vite");
-      const vite = await createViteServer({
-        server: { middlewareMode: true },
-        appType: "spa"
-      });
-      app.use(vite.middlewares);
-      app.listen(PORT, "0.0.0.0", () => {
-        console.log(`Development Server with MongoDB running on http://localhost:${PORT}`);
-      });
-  }
+// Local dev only - Vercel uses api/index.ts as the serverless handler
+if (process.env.NODE_ENV !== "production" && process.env.VERCEL !== "1") {
+  (async () => {
+    const { createServer: createViteServer } = await import("vite");
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa"
+    });
+    app.use(vite.middlewares);
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Dev server running on http://localhost:${PORT}`);
+    });
+  })();
 }
