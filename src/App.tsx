@@ -1,4 +1,5 @@
 import React from "react";
+import { getInitialState } from "./seed";
 import { User, UserRole, SystemState, CompanySettings } from "./types";
 import Sidebar from "./components/Sidebar";
 import Auth from "./components/Auth";
@@ -46,28 +47,30 @@ export default function App() {
     }
   }, [darkMode]);
 
-  // Load database from Express API
+  // Load database from Local Storage
   const fetchDb = async () => {
     try {
-      const res = await fetch("/api/db");
-      if (res.ok) {
-        const data = await res.json();
-        setDb(data);
-      } else {
-        const contentType = res.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-           const errData = await res.json();
-           setDbError(errData.error || "Failed to load database. Please check your setup.");
-        } else {
-           setDbError("Invalid response from server. Check console for details.");
-        }
+      let stateStr = localStorage.getItem("inventra_db");
+      if (!stateStr) {
+        stateStr = JSON.stringify(getInitialState());
+        localStorage.setItem("inventra_db", stateStr);
       }
+      setDb(JSON.parse(stateStr));
     } catch (e: any) {
       console.error("Database fetch error: ", e);
-      setDbError(e.message || "Failed to connect to the server.");
+      setDbError(e.message || "Failed to load local database.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const updateDb = (updater: (prev: SystemState) => SystemState) => {
+    setDb((prevDb) => {
+      if (!prevDb) return prevDb;
+      const newDb = updater(prevDb);
+      localStorage.setItem("inventra_db", JSON.stringify(newDb));
+      return newDb;
+    });
   };
 
   const handleLoginSuccess = (user: User) => {
@@ -88,230 +91,160 @@ export default function App() {
     }
   };
 
-  // --- CRUD API BINDING PIPES ---
+  // --- CRUD LOCAL BINDING PIPES ---
 
   // Products
   const handleAddProduct = async (prod: any) => {
-    const res = await fetch("/api/products", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...prod, user: currentUser?.name || "System" })
-    });
-    const data = await res.json();
-    await fetchDb();
-    return data;
+    const newDoc = { ...prod, id: "prod_" + Date.now() };
+    updateDb((prev) => ({ ...prev, products: [...prev.products, newDoc] }));
+    return { success: true, product: newDoc };
   };
 
   const handleEditProduct = async (id: string, prod: any) => {
-    const res = await fetch(`/api/products/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...prod, user: currentUser?.name || "System" })
-    });
-    const data = await res.json();
-    await fetchDb();
-    return data;
+    updateDb((prev) => ({
+      ...prev,
+      products: prev.products.map(p => p.id === id ? { ...p, ...prod } : p)
+    }));
+    return { success: true };
   };
 
   const handleRawDeleteProduct = async (id: string) => {
-    const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
-    const data = await res.json();
-    await fetchDb();
-    return data;
+    updateDb((prev) => ({ ...prev, products: prev.products.filter(p => p.id !== id) }));
+    return { success: true };
   };
 
   // Categories
   const handleAddCategory = async (cat: any) => {
-    const res = await fetch("/api/categories", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(cat)
-    });
-    const data = await res.json();
-    await fetchDb();
-    return data;
+    const newDoc = { ...cat, id: "cat_" + Date.now() };
+    updateDb((prev) => ({ ...prev, categories: [...prev.categories, newDoc] }));
+    return { success: true, category: newDoc };
   };
 
   const handleEditCategory = async (id: string, cat: any) => {
-    const res = await fetch(`/api/categories/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(cat)
-    });
-    const data = await res.json();
-    await fetchDb();
-    return data;
+    updateDb((prev) => ({
+      ...prev,
+      categories: prev.categories.map(c => c.id === id ? { ...c, ...cat } : c)
+    }));
+    return { success: true };
   };
 
   const handleDeleteCategory = async (id: string) => {
-    const res = await fetch(`/api/categories/${id}`, { method: "DELETE" });
-    const data = await res.json();
-    await fetchDb();
-    return data;
+    updateDb((prev) => ({ ...prev, categories: prev.categories.filter(c => c.id !== id) }));
+    return { success: true };
   };
 
   // Brands
   const handleAddBrand = async (brand: any) => {
-    const res = await fetch("/api/brands", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(brand)
-    });
-    const data = await res.json();
-    await fetchDb();
-    return data;
+    const newDoc = { ...brand, id: "br_" + Date.now() };
+    updateDb((prev) => ({ ...prev, brands: [...prev.brands, newDoc] }));
+    return { success: true, brand: newDoc };
   };
 
   const handleEditBrand = async (id: string, brand: any) => {
-    const res = await fetch(`/api/brands/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(brand)
-    });
-    const data = await res.json();
-    await fetchDb();
-    return data;
+    updateDb((prev) => ({
+      ...prev,
+      brands: prev.brands.map(b => b.id === id ? { ...b, ...brand } : b)
+    }));
+    return { success: true };
   };
 
   const handleDeleteBrand = async (id: string) => {
-    const res = await fetch(`/api/brands/${id}`, { method: "DELETE" });
-    const data = await res.json();
-    await fetchDb();
-    return data;
+    updateDb((prev) => ({ ...prev, brands: prev.brands.filter(b => b.id !== id) }));
+    return { success: true };
   };
 
   // Inventory movement logic
   const handlePostMovement = async (movement: any) => {
-    const res = await fetch("/api/inventory/movement", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(movement)
+    updateDb((prev) => {
+      const log = { ...movement, id: "log_" + Date.now(), timestamp: new Date().toISOString() };
+      return { ...prev, inventoryLogs: [log, ...prev.inventoryLogs] };
     });
-    const data = await res.json();
-    await fetchDb();
-    return data;
+    return { success: true };
   };
 
   // Sales Point of Sale Invoice commits
   const handlePostSale = async (sourceSale: any) => {
-    const res = await fetch("/api/sales", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(sourceSale)
-    });
-    const data = await res.json();
-    await fetchDb();
-    return data;
+    const newDoc = { ...sourceSale, id: "sale_" + Date.now(), timestamp: new Date().toISOString() };
+    updateDb((prev) => ({ ...prev, sales: [newDoc, ...prev.sales] }));
+    return { success: true, sale: newDoc };
   };
 
   // Sourcing Procurement purchase orders
   const handlePostPurchase = async (sourcePO: any) => {
-    const res = await fetch("/api/purchases", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(sourcePO)
-    });
-    const data = await res.json();
-    await fetchDb();
-    return data;
+    const newDoc = { ...sourcePO, id: "po_" + Date.now(), timestamp: new Date().toISOString() };
+    updateDb((prev) => ({ ...prev, purchases: [newDoc, ...prev.purchases] }));
+    return { success: true, purchaseOrder: newDoc };
   };
 
   const handleUpdatePOStatus = async (id: string, status: string, paymentStatus: string) => {
-    const res = await fetch(`/api/purchases/${id}/status`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status, paymentStatus })
-    });
-    const data = await res.json();
-    await fetchDb();
-    return data;
+    updateDb((prev) => ({
+      ...prev,
+      purchases: prev.purchases.map(po => po.id === id ? { ...po, status: status as any, paymentStatus: paymentStatus as any } : po)
+    }));
+    return { success: true };
   };
 
   // Customers (CRUDS)
   const handleAddCustomer = async (cust: any) => {
-    const res = await fetch("/api/customers", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(cust)
-    });
-    const data = await res.json();
-    await fetchDb();
-    return data;
+    const newDoc = { ...cust, id: "cust_" + Date.now() };
+    updateDb((prev) => ({ ...prev, customers: [...prev.customers, newDoc] }));
+    return { success: true, customer: newDoc };
   };
 
   const handleEditCustomer = async (id: string, cust: any) => {
-    const res = await fetch(`/api/customers/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(cust)
-    });
-    const data = await res.json();
-    await fetchDb();
-    return data;
+    updateDb((prev) => ({
+      ...prev,
+      customers: prev.customers.map(c => c.id === id ? { ...c, ...cust } : c)
+    }));
+    return { success: true };
   };
 
   const handleDeleteCustomer = async (id: string) => {
-    const res = await fetch(`/api/customers/${id}`, { method: "DELETE" });
-    const data = await res.json();
-    await fetchDb();
-    return data;
+    updateDb((prev) => ({ ...prev, customers: prev.customers.filter(c => c.id !== id) }));
+    return { success: true };
   };
 
   // Suppliers (CRUDS)
   const handleAddSupplier = async (sup: any) => {
-    const res = await fetch("/api/suppliers", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(sup)
-    });
-    const data = await res.json();
-    await fetchDb();
-    return data;
-;  };
+    const newDoc = { ...sup, id: "sup_" + Date.now() };
+    updateDb((prev) => ({ ...prev, suppliers: [...prev.suppliers, newDoc] }));
+    return { success: true, supplier: newDoc };
+  };
 
   const handleEditSupplier = async (id: string, sup: any) => {
-    const res = await fetch(`/api/suppliers/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(sup)
-    });
-    const data = await res.json();
-    await fetchDb();
-    return data;
+    updateDb((prev) => ({
+      ...prev,
+      suppliers: prev.suppliers.map(s => s.id === id ? { ...s, ...sup } : s)
+    }));
+    return { success: true };
   };
 
   const handleDeleteSupplier = async (id: string) => {
-    const res = await fetch(`/api/suppliers/${id}`, { method: "DELETE" });
-    const data = await res.json();
-    await fetchDb();
-    return data;
+    updateDb((prev) => ({ ...prev, suppliers: prev.suppliers.filter(s => s.id !== id) }));
+    return { success: true };
   };
 
   // Global configurations & notifications
   const handleUpdateSettings = async (settingsPayload: CompanySettings) => {
-    const res = await fetch("/api/settings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(settingsPayload)
-    });
-    const data = await res.json();
-    await fetchDb();
-    return data;
+    updateDb((prev) => ({ ...prev, settings: { ...prev.settings, ...settingsPayload } }));
+    return { success: true };
   };
 
   const handleMarkAllAsRead = async () => {
-    const res = await fetch("/api/notifications/read", { method: "POST" });
-    const data = await res.json();
-    await fetchDb();
-    return data;
+    updateDb((prev) => ({
+      ...prev,
+      notifications: prev.notifications.map(n => ({ ...n, read: true }))
+    }));
+    return { success: true };
   };
 
   const handleResetDatabase = async () => {
-    const res = await fetch("/api/db/reset", { method: "POST" });
-    const data = await res.json();
-    await fetchDb();
-    return data;
+    const freshState = getInitialState();
+    localStorage.setItem("inventra_db", JSON.stringify(freshState));
+    setDb(freshState);
+    return { success: true };
   };
+
 
   // Loading Screen Layout
   if (loading || !db) {

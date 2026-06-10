@@ -58,25 +58,8 @@ How can I assist you today? Feel free to ask me to:
     setLoading(true);
 
     try {
-      const response = await fetch("/api/assistant/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: textToSend.trim(),
-          history: updatedHistory.slice(1, -1) // slice out initial greetings and current message to avoid redundancy
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error("AI Assistant server timed out.");
-      }
-
-      const data = await response.json();
-      if (data && data.message) {
-        setMessages(prev => [...prev, { role: "assistant", message: data.message }]);
-      } else {
-        setMessages(prev => [...prev, { role: "assistant", message: "⚠️ Connection error. Received invalid package parameters." }]);
-      }
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setMessages(prev => [...prev, { role: "assistant", message: "⚠️ **Offline Mode:** The backend Express server and AI APIs have been removed as requested for the static Vercel deployment. AI answers are now mocked." }]);
     } catch (err: any) {
       setMessages(prev => [...prev, { role: "assistant", message: `❌ **Process Failed**: ${err.message || "Failed to contact local AI engine."}` }]);
     } finally {
